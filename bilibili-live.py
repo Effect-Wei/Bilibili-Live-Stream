@@ -58,7 +58,7 @@ headers = {
 
 start_data_bls = {
     'room_id': '',  # 填自己的room_id
-    'platform': 'pc',
+    'platform': 'android_link',
     'area_v2': AREA_V2,
     'backup_stream': '0',
     'csrf_token': '',  # 填csrf
@@ -67,7 +67,7 @@ start_data_bls = {
 
 stop_data_bls = {
     'room_id': '',  # 一样，改room_id
-    'platform': 'pc',
+    'platform': 'android_link',
     'csrf_token': '',  # 一样，改csrf，两个都改
     'csrf': '',
 }
