@@ -5,8 +5,7 @@ import io
 import sys
 import json
 import os
-import obswebsocket
-from obswebsocket import obsws, requests
+import obsws_python as obs
 
 # 从配置文件加载设置
 config_path = "config.json"
@@ -58,7 +57,7 @@ headers = {
 
 start_data_bls = {
     'room_id': '',  # 填自己的room_id
-    'platform': 'android_link',
+    'platform': 'pc_link',
     'area_v2': AREA_V2,
     'backup_stream': '0',
     'csrf_token': '',  # 填csrf
@@ -67,7 +66,7 @@ start_data_bls = {
 
 stop_data_bls = {
     'room_id': '',  # 一样，改room_id
-    'platform': 'android_link',
+    'platform': 'pc_link',
     'csrf_token': '',  # 一样，改csrf，两个都改
     'csrf': '',
 }
@@ -201,10 +200,11 @@ def configure_obs_stream(rtmp_addr, rtmp_code):
         print("跳过OBS配置")
         return
 
-    ws = obsws(OBS_HOST, OBS_PORT, OBS_PASSWORD)
+    print("开始配置OBS")
+
     try:
-        ws.connect()
-    except obswebsocket.exceptions.ConnectionFailure as e:
+        ws = obs.ReqClient(host=OBS_HOST, port=OBS_PORT, password=OBS_PASSWORD, timeout=3)
+    except obs.error.OBSSDKError as e:
         print(f"OBS 连接失败: {e}")
         input("按任意键退出")
         sys.exit(1)
@@ -214,11 +214,12 @@ def configure_obs_stream(rtmp_addr, rtmp_code):
         "server": rtmp_addr,
         "key": rtmp_code
     }
-    ws.call(requests.SetStreamSettings(type="rtmp_custom", settings=settings, save=True))
+    ws.set_stream_service_settings(ss_type="rtmp_custom", ss_settings=settings)
     
     if AUTO_STREAM:
-        ws.call(requests.StartStreaming())  # 自动开始推流
+        ws.start_stream()  # 自动开始推流
     ws.disconnect()
+    print("OBS配置完毕")
 
 def start_live():
     """
@@ -228,6 +229,7 @@ def start_live():
     room_id = get_room_id_by_uid()  # 使用DedeUserID获取room_id
     start_data_bls['room_id'] = room_id
     response = requests_lib.post('https://api.live.bilibili.com/room/v1/Room/startLive', cookies=cookies, headers=headers, data=start_data_bls).json()
+    #response = {'code': 0, 'data': {'change': 1, 'status': 'LIVE', 'try_time': '0000-00-00 00:00:00', 'room_type': 0, 'live_key': '605603716031416155', 'sub_session_key': '605603716031416155sub_time:1748580763', 'rtmp': {'type': 1, 'addr': 'rtmp://txy2.live-push.bilivideo.com/live-bvc/', 'code': '?streamname=live_87585800_8233248&key=0fc26a41f2fe8d90db2d7b6c4dcc6e1c&schedule=rtmp&pflag=4', 'new_link': '', 'provider': 'txy2'}, 'protocols': [{'protocol': 'rtmp', 'addr': 'rtmp://txy2.live-push.bilivideo.com/live-bvc/', 'code': '?streamname=live_87585800_8233248&key=0fc26a41f2fe8d90db2d7b6c4dcc6e1c&schedule=rtmp&pflag=4', 'new_link': '', 'provider': 'txy'}], 'notice': {'type': 1, 'status': 0, 'title': '', 'msg': '', 'button_text': '', 'button_url': ''}, 'qr': '', 'need_face_auth': False, 'service_source': 'live-streaming', 'rtmp_backup': None, 'up_stream_extra': {'isp': '小运营商'}}, 'message': '', 'msg': ''} 
     print(response)  # 添加调试信息
     if response['code'] == 0:
         rtmp_info = response['data']['rtmp']
@@ -253,14 +255,13 @@ def stop_live():
         print("直播已停止")
         
         if AUTO_STREAM and CONFIGURE_OBS:
-            ws = obsws(OBS_HOST, OBS_PORT, OBS_PASSWORD)
             try:
-                ws.connect()
-            except obswebsocket.exceptions.ConnectionFailure as e:
+                ws = obs.ReqClient(host=OBS_HOST, port=OBS_PORT, password=OBS_PASSWORD, timeout=3)
+            except obs.error.OBSSDKError as e:
                 print(f"OBS 连接失败: {e}")
                 input("按任意键退出")
                 sys.exit(1)
-            ws.call(requests.StopStreaming())  # 停止OBS推流
+            ws.stop_stream()  # 停止OBS推流
             ws.disconnect()
     else:
         print(f"停止直播失败: {response['message']}")
